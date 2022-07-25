@@ -3,7 +3,7 @@
 Using Bitbucket's Rest Api (1.0) this script will search through all repositories in search of **gherkin feature files**.\
 \
 \
-In it's default configuration it saves each repositories gathered data as Json files in the **/data/** directory as well as print out the Json string into the console.
+In it's default configuration it saves each repositories gathered data as Json files in the **/data/** directory as well as printing out the Json string to console
 (each line being a seperate repository).\
 The main function also returns a list of all Json strings sorted by the repository index\
 \
