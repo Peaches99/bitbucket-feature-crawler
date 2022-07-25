@@ -22,7 +22,7 @@ but don't forget to rename it **.env** when you are done.
 
 >**BITBUCKET_CREDENTIAL_TOKEN="Basic <-encoded_credentials->"**
 
-To get the encoded credentials you need to **base64** encode your credential string "**username:password**" and place it in the above location above.
+To get the encoded credentials you need to **base64** encode your credential string "**username:password**" and place it in the location above.
 <br/><br/>
 
 ### **Api Url**
