@@ -1,0 +1,3 @@
+BITBUCKET_CREDENTIAL_TOKEN="Basic <-encoded_credentials->"
+BITBUCKET_PROJECT_URL="http://<bitbucket_url>/rest/api/1.0/projects/"
+TCP_REQUEST_LIMIT=30
