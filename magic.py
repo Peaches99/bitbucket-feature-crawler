@@ -135,6 +135,8 @@ async def main():
                 
             repo_key_index.append(repo_names)
         
+
+
         dir_features = await download_all(repo_urls, tcp_limit)
 
         repo_feature_index = []
@@ -159,13 +161,17 @@ async def main():
                 feature_index = feature_repos[repo]
                 file_count = feature_index["size"]
                 
+                for i in file_count:
+                    feature_repos[repo][]
             except:
                 pass
             
             for i in range(file_count):
                 
+
+
                 file_urls.append(bitbucket_projects+keys[matchKey(repo, repo_key_index)[0]]+"/repos/"+repo+"/browse/src/test/resources/features/"+feature_index["values"][i]["path"]["name"])
-        
+
 
         feature_files = await download_all(file_urls, tcp_limit)
         
