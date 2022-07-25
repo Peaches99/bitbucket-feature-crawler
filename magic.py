@@ -146,23 +146,27 @@ async def main():
                 if dir["children"]["size"] > 0:
                     feature_repos.update({repo_index[idx]: dir["children"]})
                     repo_feature_index.append(str(dir["children"]["size"]))
+                else:
+                    repo_feature_index.append("0")
             except:
                 repo_feature_index.append("0")
-
+        
         file_urls = []
-
         #Generate the urls before downloading all of them at the same time for efficiency
-        for repo in repo_index:
+        for idx, repo in enumerate(repo_index):
             file_count = 0
             try:
                 feature_index = feature_repos[repo]
                 file_count = feature_index["size"]
+                
             except:
                 pass
             
             for i in range(file_count):
+                
                 file_urls.append(bitbucket_projects+keys[matchKey(repo, repo_key_index)[0]]+"/repos/"+repo+"/browse/src/test/resources/features/"+feature_index["values"][i]["path"]["name"])
         
+
         feature_files = await download_all(file_urls, tcp_limit)
         
 
@@ -181,6 +185,7 @@ async def main():
         out = []
         # Go through all repos, check if they have at least one feature file and build a project from the files
         for idx, repo in enumerate(repo_feature_index):
+           
             if repo != "0":
                 all_lines = []
                 for elem in repo:
