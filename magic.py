@@ -12,8 +12,9 @@ from numpy import empty, save
 
 import objectBuilder as ob
 
-
-
+if os.path.exists(".env") is False:
+        print("\n\n\nMissing .env file!!!\n\n\n")
+        
 load_dotenv()
 token = os.getenv("BITBUCKET_CREDENTIAL_TOKEN")
 headers = {"Content-Type": "application/json", "Authorization": token}
