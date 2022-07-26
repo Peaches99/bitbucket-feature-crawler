@@ -147,13 +147,21 @@ async def main():
             try:
                 if dir["children"]["size"] > 0:
                     feature_repos.update({repo_index[idx]: dir["children"]})
-                    repo_feature_index.append(str(dir["children"]["size"]))
+
+                    # repo_feature_index.append(str(dir["children"]["size"]))
+                    
+                    temp = 0
+                    for feature in dir["children"]["values"]:
+                        if feature['type'] != "DIRECTORY":
+                            temp += 1
+                    repo_feature_index.append(str(temp))
                 else:
                     repo_feature_index.append("0")
             except:
                 repo_feature_index.append("0")
         
         file_urls = []
+        dirs = []
         #Generate the urls before downloading all of them at the same time for efficiency
         for idx, repo in enumerate(repo_index):
             file_count = 0
@@ -161,20 +169,19 @@ async def main():
                 feature_index = feature_repos[repo]
                 file_count = feature_index["size"]
                 
-                for i in file_count:
-                    feature_repos[repo][]
+                
+                # for i in range(file_count):
+                #     if feature_index['values'][i]['type'] == "DIRECTORY":
+                #         dirs.append(feature_index['values'][i]['path']['name'])
             except:
                 pass
             
             for i in range(file_count):
-                
-
-
-                file_urls.append(bitbucket_projects+keys[matchKey(repo, repo_key_index)[0]]+"/repos/"+repo+"/browse/src/test/resources/features/"+feature_index["values"][i]["path"]["name"])
-
+                if feature_index['values'][i]['type'] != "DIRECTORY":
+                    
+                    file_urls.append(bitbucket_projects+keys[matchKey(repo, repo_key_index)[0]]+"/repos/"+repo+"/browse/src/test/resources/features/"+feature_index["values"][i]["path"]["name"])
 
         feature_files = await download_all(file_urls, tcp_limit)
-        
 
         #Load all feature files found into their respective repository index
         for idx, elem in enumerate(repo_feature_index):
