@@ -22,7 +22,7 @@ bitbucket_projects = os.getenv("BITBUCKET_PROJECT_URL")
 
 projectUrl = bitbucket_projects.rstrip(bitbucket_projects[-1])+ "?limit=2000"
 
-request_limit = int(os.getenv("TCP_REQUEST_LIMIT"))
+tcp_limit = int(os.getenv("TCP_REQUEST_LIMIT"))
 
 
 def encodeB64(toEncode):
@@ -80,29 +80,106 @@ def matchKey(target, matchList):
                 return(idx, i)
     return(None)
 
-def getAllVariables(project):
-    print(project.getProjectID())
-    for feature in project.getFeatures():
-        print(feature.getFeatureName())
-        print(feature.getDescription())
-        for scenario in feature.getScenarios():
-            print(scenario.getScenarioName())
-            print(scenario.getGiven())
-            print(scenario.getWhen())
-            print(scenario.getThen())
+async def getAllFeatureUrls(repo_index, repo_feature_index, feature_repos, repo_key_index, keys):
+    file_urls = []
+        #Generate the urls before downloading all of them at the same time for efficiency
+    for idx, repo in enumerate(repo_index):
+        
+        dir_url = []
+        dir_names = []
 
+        file_count = 0
+        try:
+            feature_index = feature_repos[repo]
+            file_count = feature_index["size"]
+            
+            
+        except:
+            pass
+        
+        for i in range(file_count):
+            if feature_index['values'][i]['type'] != "DIRECTORY":
 
+                file_urls.append(bitbucket_projects+keys[matchKey(repo, repo_key_index)[0]]+"/repos/"+repo+"/browse/src/test/resources/features/"+feature_index["values"][i]["path"]["name"])
 
-async def main():
+            elif feature_index['values'][i]['type'] == "DIRECTORY":
+                dir_names.append(feature_index['values'][i]["path"]["name"])
+                dir_url.append(bitbucket_projects+keys[matchKey(repo, repo_key_index)[0]]+"/repos/"+repo+"/browse/src/test/resources/features/"+feature_index["values"][i]["path"]["name"])
 
-        tcp_limit = request_limit
+        dirs = await download_all(dir_url, tcp_limit)
+        subfiles = []
 
+        for i, dir in enumerate(dirs):
+            dir = json.loads(json.loads(json.dumps(dir, indent=4)))
+            children = dir["children"]["values"]
+
+            for child in children:
+                child = json.loads(json.dumps(child, indent=4))
+                if child["type"] != "DIRECTORY":
+                    subfiles.append(child["path"]["name"])
+        for file in subfiles:
+            file_urls.append(bitbucket_projects+keys[matchKey(repo, repo_key_index)[0]]+"/repos/"+repo+"/browse/src/test/resources/features/"+dir_names[i]+"/"+file)
+            repo_feature_index[idx] = str(int(repo_feature_index[idx]) + 1)
+
+    return file_urls
+
+async def getFeatureIndex(dir_features, feature_repos, repo_index):
+    repo_feature_index = []
+
+    for idx, dir in enumerate(dir_features):
+        dir = json.loads(json.loads(json.dumps(dir, indent=4)))
+        try:
+            if dir["children"]["size"] > 0:
+                feature_repos.update({repo_index[idx]: dir["children"]})
+
+                temp = 0
+                for feature in dir["children"]["values"]:
+                    if feature['type'] != "DIRECTORY":
+                        temp += 1
+                repo_feature_index.append(str(temp))
+            else:
+                repo_feature_index.append("0")
+        except:
+            repo_feature_index.append("0")
+
+    return repo_feature_index
+
+async def getRepoIndex(projects):
+
+    repo_urls = []
+    repo_key_index = []
+    repo_index = []
+    keys = []
+    key_urls = []
+
+    for p in projects:
+        key = p["key"]
+        key_urls.append(bitbucket_projects+key+"/repos?limit=1000")
+        keys.append(p["key"])
+
+    project_repos = await download_all(key_urls, tcp_limit)
+    project_count = len(keys)
     
-        repo_urls = []
-        repo_key_index = []
-        repo_index = []
-        keys = []
-        key_urls = []
+    #Check how many repos have a feature dir which suggests they have feature files
+    for i in range(project_count):
+        repo_json = json.loads(json.loads(json.dumps(project_repos[i], indent=4)))
+        repo_names = []
+        repo_count = repo_json["size"]
+        
+        for x in range(repo_count):
+            repo_name = repo_json["values"][x]["slug"]
+
+            repo_index.append(str(repo_name))
+
+            url = bitbucket_projects+keys[i]+"/repos/"+repo_name+"/browse/src/test/resources/features"
+            repo_urls.append(url)
+            repo_names.append(repo_name)
+            
+        repo_key_index.append(repo_names)
+
+    return repo_index, repo_key_index, keys, repo_urls
+
+async def main():    
         feature_repos = {}
 
         projectsRaw = await download_all([projectUrl], tcp_limit)
@@ -110,98 +187,43 @@ async def main():
 
 
         #Index all Project keys
-        for p in projects:
-            key = p["key"]
-            key_urls.append(bitbucket_projects+key+"/repos?limit=1000")
-            keys.append(p["key"])
+        # for p in projects:
+        #     key = p["key"]
+        #     key_urls.append(bitbucket_projects+key+"/repos?limit=1000")
+        #     keys.append(p["key"])
 
-        project_repos = await download_all(key_urls, tcp_limit)
-        project_count = len(keys)
+        # project_repos = await download_all(key_urls, tcp_limit)
+        # project_count = len(keys)
         
-        #Check how many repos have a feature dir which suggests they have feature files
-        for i in range(project_count):
-            repo_json = json.loads(json.loads(json.dumps(project_repos[i], indent=4)))
-            repo_names = []
-            repo_count = repo_json["size"]
+        # #Check how many repos have a feature dir which suggests they have feature files
+        # for i in range(project_count):
+        #     repo_json = json.loads(json.loads(json.dumps(project_repos[i], indent=4)))
+        #     repo_names = []
+        #     repo_count = repo_json["size"]
             
-            for x in range(repo_count):
-                repo_name = repo_json["values"][x]["slug"]
+        #     for x in range(repo_count):
+        #         repo_name = repo_json["values"][x]["slug"]
 
-                repo_index.append(str(repo_name))
+        #         repo_index.append(str(repo_name))
 
-                url = bitbucket_projects+keys[i]+"/repos/"+repo_name+"/browse/src/test/resources/features"
-                repo_urls.append(url)
-                repo_names.append(repo_name)
+        #         url = bitbucket_projects+keys[i]+"/repos/"+repo_name+"/browse/src/test/resources/features"
+        #         repo_urls.append(url)
+        #         repo_names.append(repo_name)
                 
-            repo_key_index.append(repo_names)
+        #     repo_key_index.append(repo_names)
         
 
+        repo_index, repo_key_index, keys, repo_urls = await getRepoIndex(projects)
 
         dir_features = await download_all(repo_urls, tcp_limit)
 
-        repo_feature_index = []
+        repo_feature_index = await getFeatureIndex(dir_features, feature_repos, repo_index)
 
-        #Index all feature files from their parent"s Json information
-        for idx, dir in enumerate(dir_features):
-            dir = json.loads(json.loads(json.dumps(dir, indent=4)))
-            try:
-                if dir["children"]["size"] > 0:
-                    feature_repos.update({repo_index[idx]: dir["children"]})
-
-                    # repo_feature_index.append(str(dir["children"]["size"]))
-
-                    temp = 0
-                    for feature in dir["children"]["values"]:
-                        if feature['type'] != "DIRECTORY":
-                            temp += 1
-                    repo_feature_index.append(str(temp))
-                else:
-                    repo_feature_index.append("0")
-            except:
-                repo_feature_index.append("0")
-        
-        file_urls = []
-        #Generate the urls before downloading all of them at the same time for efficiency
-        for idx, repo in enumerate(repo_index):
-            
-            dir_url = []
-            dir_names = []
-
-            file_count = 0
-            try:
-                feature_index = feature_repos[repo]
-                file_count = feature_index["size"]
-                
-                
-            except:
-                pass
-            
-            for i in range(file_count):
-                if feature_index['values'][i]['type'] != "DIRECTORY":
-
-                    file_urls.append(bitbucket_projects+keys[matchKey(repo, repo_key_index)[0]]+"/repos/"+repo+"/browse/src/test/resources/features/"+feature_index["values"][i]["path"]["name"])
-
-                elif feature_index['values'][i]['type'] == "DIRECTORY":
-                    dir_names.append(feature_index['values'][i]["path"]["name"])
-                    dir_url.append(bitbucket_projects+keys[matchKey(repo, repo_key_index)[0]]+"/repos/"+repo+"/browse/src/test/resources/features/"+feature_index["values"][i]["path"]["name"])
-
-            dirs = await download_all(dir_url, tcp_limit)
-            subfiles = []
-
-            for i, dir in enumerate(dirs):
-                dir = json.loads(json.loads(json.dumps(dir, indent=4)))
-                children = dir["children"]["values"]
-
-                for child in children:
-                    child = json.loads(json.dumps(child, indent=4))
-                    if child["type"] != "DIRECTORY":
-                        subfiles.append(child["path"]["name"])
-            for file in subfiles:
-                file_urls.append(bitbucket_projects+keys[matchKey(repo, repo_key_index)[0]]+"/repos/"+repo+"/browse/src/test/resources/features/"+dir_names[i]+"/"+file)
-                repo_feature_index[idx] = str(int(repo_feature_index[idx]) + 1)
+        file_urls = await getAllFeatureUrls(repo_index, repo_feature_index, feature_repos, repo_key_index, keys)
 
         feature_files = await download_all(file_urls, tcp_limit)
     
+
         #Load all feature files found into their respective repository index
         for idx, elem in enumerate(repo_feature_index):
             if elem != "0":
