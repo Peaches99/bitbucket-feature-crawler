@@ -12,6 +12,8 @@ It will only create a Project file if a repository has at least one feature file
 
 ## **Setup:**
 
+You can use **generateEnv.py** to interactively generate the required config file interactively but if you want to do that manually follow the guide below
+<br/><br/><br/><br/>
 There needs to be a **.env** file in the root script directory with the bitbucket credentials and url in the following format:
 
 You will find all these variables in an example file called **setup_example**
