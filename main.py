@@ -165,11 +165,13 @@ async def getFeatureIndex(dir_features, repo_index):
                 for feature in dir["children"]["values"]:
                     if feature['type'] != "DIRECTORY":
                         temp += 1
+                        logging.info("Found feature at repo #"+idx)
                 repo_feature_index.append(str(temp))
             else:
                 repo_feature_index.append("0")
         except:
             repo_feature_index.append("0")
+            
 
     return repo_feature_index, feature_repos
 
@@ -280,27 +282,28 @@ async def main():
         
         #Uses the downloaded project data to figure out which repository belongs to each project and maps them out
         repo_index, repo_key_index, keys, repo_urls = await getRepoIndex(projects)
-
+        logging.info("Finding all relevant repos...")
         #Downloads all root feature directories to map out how many feature files and subfolders exists before indexing them
         dir_features = await download_all(repo_urls)
         repo_feature_index, feature_repos = await getFeatureIndex(dir_features, repo_index)
 
-
+        logging.info("Getting all feature files...")
         #Goes through all the names and generates the api call urls for every repository before downloading all of them asynchronously for a giant performance gain
         file_urls, repo_feature_index = await getAllFeatureUrls(repo_index, repo_feature_index, feature_repos, repo_key_index, keys)
         feature_files = await download_all(file_urls)
 
+        logging.info("Indexing Features...")
 
         #In order to know which features belong a repo this checks where feature files are expected
         repo_feature_index = await assignFeatures(repo_feature_index, feature_files)
 
 
         if os.path.isdir("data"):
-                    shutil.rmtree("data")
-
+                shutil.rmtree("data")
+                logging.info("Clearing previous data...")
         cDir("data")
 
-
+        logging.info("Building output...")
         #uses objectbuilder.py to format the gathered informatin into a single Json structure per repo
         out = await buildOutput(repo_index, repo_key_index, repo_feature_index, keys, save_json=True)
 
