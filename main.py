@@ -12,7 +12,7 @@ from aiohttp.client import ClientSession
 from dotenv import load_dotenv
 from numpy import empty, save
 
-import objectBuilder as ob
+import util.objectBuilder as ob
 
 
 logging.basicConfig(filename='lastLog.log', encoding='utf-8', level=logging.DEBUG)
