@@ -58,8 +58,6 @@ async def download_link(url:str,session:ClientSession):
 
 
 async def download_all(urls:list):
-    logging.info("Starting download of "+str(len(urls))+" elements.")
-
     my_conn = aiohttp.TCPConnector(limit=tcp_limit)
     async with aiohttp.ClientSession(connector=my_conn) as session:
         tasks = []
@@ -67,7 +65,6 @@ async def download_all(urls:list):
             task = asyncio.ensure_future(download_link(url=url,session=session))
             tasks.append(task)
         out = await asyncio.gather(*tasks,return_exceptions=True)
-        logging.info("Finished download")
         return(out)
 
 
@@ -276,7 +273,7 @@ async def assignFeatures(repo_feature_index, feature_files):
 async def main():    
 
         
-
+        logging.info("Downloading the project index")
         #Download all projects information for further processing
         projectsRaw = await download_all([projectUrl])
         projects = json.loads(json.loads(json.dumps(projectsRaw[0], indent=4)))["values"]
@@ -284,6 +281,10 @@ async def main():
         #Uses the downloaded project data to figure out which repository belongs to each project and maps them out
         repo_index, repo_key_index, keys, repo_urls = await getRepoIndex(projects)
         logging.info("Finding all relevant repos...")
+        
+
+        logging.info("Starting download of "+str(len(repo_urls))+" elements.")
+
         #Downloads all root feature directories to map out how many feature files and subfolders exists before indexing them
         dir_features = await download_all(repo_urls)
         repo_feature_index, feature_repos = await getFeatureIndex(dir_features, repo_index)
@@ -291,6 +292,8 @@ async def main():
         logging.info("Getting all feature files...")
         #Goes through all the names and generates the api call urls for every repository before downloading all of them asynchronously for a giant performance gain
         file_urls, repo_feature_index = await getAllFeatureUrls(repo_index, repo_feature_index, feature_repos, repo_key_index, keys)
+
+        logging.info("Starting download of "+str(len(file_urls))+" elements.")
         feature_files = await download_all(file_urls)
 
         logging.info("Indexing Features...")
