@@ -2,8 +2,9 @@ import asyncio
 import base64
 import json
 import os
-from logging import log
+import logging
 import shutil
+import sys
 
 import aiohttp
 from aiohttp.client import ClientSession
@@ -14,23 +15,33 @@ import objectBuilder as ob
 
 # Important check as the script will not work without an environment file
 if os.path.exists(".env") is False:
-        print("\n\n\nMissing .env file!!!\n\n\n")
-        
+    logging.critical("Missing Env file.")
+    sys.exit()
+else:
+    logging.info("Env file found.")
 
+logging.info("Loading Env Data...")
 load_dotenv()
+
+
 token = os.getenv("BITBUCKET_CREDENTIAL_TOKEN")
 bitbucket_projects = os.getenv("BITBUCKET_PROJECT_URL")
 tcp_limit = int(os.getenv("TCP_REQUEST_LIMIT"))
 
+logging.info("Env data loaded.")
+
+if tcp_limit > 100:
+    logging.warning("Tcp request limit over 100. This might impact your server performance.")
+elif tcp_limit < 10:
+    logging.warning("Tcp request limit under 10. This might slow down the script significantly.")
+elif tcp_limit == 1:
+    logging.warning("Tcp request limit is 1. This will run extremely low.")
+elif tcp_limit == 0:
+    logging.critical("Tcp request limit is 0. The script is not able to run.")
+
 headers = {"Content-Type": "application/json", "Authorization": token}
 projectUrl = bitbucket_projects.rstrip(bitbucket_projects[-1])+ "?limit=2000"
-
-
-
-
-def encodeB64(toEncode):
-    encoded = base64.b64encode(bytes(toEncode, "utf-8"))
-    return encoded
+logging.info("Projects Url: ",projectUrl)
             
 
 async def download_link(url:str,session:ClientSession):
@@ -205,7 +216,7 @@ async def buildOutput(repo_index, repo_key_index , repo_feature_index, keys, sav
                 
                 all_lines.append(lines)
 
-            
+            # builds object using objectBuilder.py
             project = ob.buildProject(keys[matchKey(repo_index[idx], repo_key_index)[0]], repo_index[idx], all_lines)
             
             outJson = {}
