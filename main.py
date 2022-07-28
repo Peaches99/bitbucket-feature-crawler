@@ -14,7 +14,7 @@ from numpy import empty, save
 
 import util.objectBuilder as ob
 
-
+os.remove("lastLog.log")
 logging.basicConfig(filename='lastLog.log', encoding='utf-8', level=logging.DEBUG)
 
 # Important check as the script will not work without an environment file
@@ -250,7 +250,8 @@ async def buildOutput(repo_index, repo_key_index , repo_feature_index, keys, sav
             
 
             out.append(outJson)
-        if save_json : saveJson("data/output", out)
+    if save_json : saveJson("data/output", out)
+
     return out
 
 
