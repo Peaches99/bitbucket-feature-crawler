@@ -14,7 +14,10 @@ from numpy import empty, save
 
 import util.objectBuilder as ob
 
-os.remove("lastLog.log")
+try:
+    os.remove("lastLog.log")
+except:
+    pass
 logging.basicConfig(filename='lastLog.log', encoding='utf-8', level=logging.DEBUG)
 
 # Important check as the script will not work without an environment file
