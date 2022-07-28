@@ -3,15 +3,15 @@
 Using Bitbucket's Rest Api (1.0) this script will search through all repositories in search of **gherkin feature files**.\
 \
 \
-In it's default configuration it saves each repositories gathered data as a single Json file in the **/data/** directory\
-The main function also returns a list of all Json strings sorted by the repository index\
+In it's default configuration it saves each repositories gathered data as a single Json file in the **/data/** directory.\
+The main function also returns a list of all Json strings sorted by the repository index.\
 \
 It will only create a Project file if a repository has at least one feature file and if it has more than one they will all be added into a single project file.
 <br/><br/>
 
 ## **Setup:**
 
-You can use **generateEnv.py** to interactively generate the required config file interactively but if you want to do that manually follow the guide below
+You can use **generateEnv.py** to interactively generate the required config file interactively but if you want to do that manually follow the guide below.
 <br/><br/><br/><br/>
 There needs to be a **.env** file in the root script directory with the bitbucket credentials and url in the following format:
 
