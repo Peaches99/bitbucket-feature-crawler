@@ -5,6 +5,7 @@ import os
 import logging
 import shutil
 import sys
+import datetime
 
 import aiohttp
 from aiohttp.client import ClientSession
@@ -12,6 +13,9 @@ from dotenv import load_dotenv
 from numpy import empty, save
 
 import objectBuilder as ob
+
+
+logging.basicConfig(filename='lastLog.log', encoding='utf-8', level=logging.DEBUG)
 
 # Important check as the script will not work without an environment file
 if os.path.exists(".env") is False:
@@ -41,10 +45,11 @@ elif tcp_limit == 0:
 
 headers = {"Content-Type": "application/json", "Authorization": token}
 projectUrl = bitbucket_projects.rstrip(bitbucket_projects[-1])+ "?limit=2000"
-logging.info("Projects Url: ",projectUrl)
+logging.info("Projects Url: "+projectUrl)
             
 
 async def download_link(url:str,session:ClientSession):
+    logging.info("downloading: "+url+" ...")
     headers = {"Content-Type": "application/json", "Authorization": token}
     async with session.get(url, headers=headers) as response:
         result = await response.text()
@@ -53,6 +58,8 @@ async def download_link(url:str,session:ClientSession):
 
 
 async def download_all(urls:list):
+    logging.info("Starting download of "+str(len(urls))+" elements.")
+
     my_conn = aiohttp.TCPConnector(limit=tcp_limit)
     async with aiohttp.ClientSession(connector=my_conn) as session:
         tasks = []
@@ -60,10 +67,12 @@ async def download_all(urls:list):
             task = asyncio.ensure_future(download_link(url=url,session=session))
             tasks.append(task)
         out = await asyncio.gather(*tasks,return_exceptions=True)
+        logging.info("Finished download")
         return(out)
 
 
 def saveJson(name, inFile):
+    logging.info("Saving Json: "+name+" ...")
     if os.path.exists(name+".json"):
         os.remove(name+".json")
 
@@ -72,6 +81,7 @@ def saveJson(name, inFile):
     file = open(name+".json", "x")
     file.write(data)
     file.close
+    logging.info("Finished")
 
 
 def cDir(name):
@@ -235,10 +245,10 @@ async def buildOutput(repo_index, repo_key_index , repo_feature_index, keys, sav
             
             outJson.update({"features": features})
 
-            if save_json : saveJson("data/"+repo_index[idx], outJson)
+            
 
             out.append(outJson)
-
+        if save_json : saveJson("data/output", out)
     return out
 
 
@@ -262,10 +272,7 @@ async def assignFeatures(repo_feature_index, feature_files):
 
 async def main():    
 
-        if os.path.isdir("data"):
-                    shutil.rmtree("data")
-
-        cDir("data")
+        
 
         #Download all projects information for further processing
         projectsRaw = await download_all([projectUrl])
@@ -287,11 +294,18 @@ async def main():
         #In order to know which features belong a repo this checks where feature files are expected
         repo_feature_index = await assignFeatures(repo_feature_index, feature_files)
 
+
+        if os.path.isdir("data"):
+                    shutil.rmtree("data")
+
+        cDir("data")
+
+
         #uses objectbuilder.py to format the gathered informatin into a single Json structure per repo
         out = await buildOutput(repo_index, repo_key_index, repo_feature_index, keys, save_json=True)
 
         #print out each project file in a seperate line for use in console interfaces
-        for project in out: print(project)
+        #for project in out: print(project)
 
         return out
     
