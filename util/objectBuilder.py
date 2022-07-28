@@ -1,5 +1,5 @@
 from curses.ascii import isspace
-from model import Project, Feature, Scenario
+from util.model import Project, Feature, Scenario
 
 def concatEx(input, excluded):
     s = ""

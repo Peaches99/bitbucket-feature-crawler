@@ -2,38 +2,54 @@ import asyncio
 import base64
 import json
 import os
-from logging import log
+import logging
 import shutil
+import sys
+import datetime
 
 import aiohttp
 from aiohttp.client import ClientSession
 from dotenv import load_dotenv
 from numpy import empty, save
 
-import objectBuilder as ob
+import util.objectBuilder as ob
+
+
+logging.basicConfig(filename='lastLog.log', encoding='utf-8', level=logging.DEBUG)
 
 # Important check as the script will not work without an environment file
 if os.path.exists(".env") is False:
-        print("\n\n\nMissing .env file!!!\n\n\n")
-        
+    logging.critical("Missing Env file.")
+    sys.exit()
+else:
+    logging.info("Env file found.")
 
+logging.info("Loading Env Data...")
 load_dotenv()
+
+
 token = os.getenv("BITBUCKET_CREDENTIAL_TOKEN")
 bitbucket_projects = os.getenv("BITBUCKET_PROJECT_URL")
 tcp_limit = int(os.getenv("TCP_REQUEST_LIMIT"))
 
+logging.info("Env data loaded.")
+
+if tcp_limit > 100:
+    logging.warning("Tcp request limit over 100. This might impact your server performance.")
+elif tcp_limit < 10:
+    logging.warning("Tcp request limit under 10. This might slow down the script significantly.")
+elif tcp_limit == 1:
+    logging.warning("Tcp request limit is 1. This will run extremely low.")
+elif tcp_limit == 0:
+    logging.critical("Tcp request limit is 0. The script is not able to run.")
+
 headers = {"Content-Type": "application/json", "Authorization": token}
 projectUrl = bitbucket_projects.rstrip(bitbucket_projects[-1])+ "?limit=2000"
-
-
-
-
-def encodeB64(toEncode):
-    encoded = base64.b64encode(bytes(toEncode, "utf-8"))
-    return encoded
+logging.info("Projects Url: "+projectUrl)
             
 
 async def download_link(url:str,session:ClientSession):
+    logging.info("downloading: "+url+" ...")
     headers = {"Content-Type": "application/json", "Authorization": token}
     async with session.get(url, headers=headers) as response:
         result = await response.text()
@@ -41,7 +57,9 @@ async def download_link(url:str,session:ClientSession):
         return(result)
 
 
-async def download_all(urls:list, tcp_limit):
+async def download_all(urls:list):
+    logging.info("Starting download of "+str(len(urls))+" elements.")
+
     my_conn = aiohttp.TCPConnector(limit=tcp_limit)
     async with aiohttp.ClientSession(connector=my_conn) as session:
         tasks = []
@@ -49,10 +67,12 @@ async def download_all(urls:list, tcp_limit):
             task = asyncio.ensure_future(download_link(url=url,session=session))
             tasks.append(task)
         out = await asyncio.gather(*tasks,return_exceptions=True)
+        logging.info("Finished download")
         return(out)
 
 
 def saveJson(name, inFile):
+    logging.info("Saving Json: "+name+" ...")
     if os.path.exists(name+".json"):
         os.remove(name+".json")
 
@@ -61,6 +81,7 @@ def saveJson(name, inFile):
     file = open(name+".json", "x")
     file.write(data)
     file.close
+    logging.info("Finished")
 
 
 def cDir(name):
@@ -112,7 +133,7 @@ async def getAllFeatureUrls(repo_index, repo_feature_index, feature_repos, repo_
                 dir_names.append(feature_index['values'][i]["path"]["name"])
                 dir_url.append(bitbucket_projects+keys[matchKey(repo, repo_key_index)[0]]+"/repos/"+repo+"/browse/src/test/resources/features/"+feature_index["values"][i]["path"]["name"])
 
-        dirs = await download_all(dir_url, tcp_limit)
+        dirs = await download_all(dir_url)
         subfiles = []
 
         for i, dir in enumerate(dirs):
@@ -144,11 +165,13 @@ async def getFeatureIndex(dir_features, repo_index):
                 for feature in dir["children"]["values"]:
                     if feature['type'] != "DIRECTORY":
                         temp += 1
+                        logging.info("Found feature at repo #"+idx)
                 repo_feature_index.append(str(temp))
             else:
                 repo_feature_index.append("0")
         except:
             repo_feature_index.append("0")
+            
 
     return repo_feature_index, feature_repos
 
@@ -166,7 +189,7 @@ async def getRepoIndex(projects):
         key_urls.append(bitbucket_projects+key+"/repos?limit=1000")
         keys.append(p["key"])
 
-    project_repos = await download_all(key_urls, tcp_limit)
+    project_repos = await download_all(key_urls)
     project_count = len(keys)
     
     #Check how many repos have a feature dir which suggests they have feature files
@@ -205,7 +228,7 @@ async def buildOutput(repo_index, repo_key_index , repo_feature_index, keys, sav
                 
                 all_lines.append(lines)
 
-            
+            # builds object using objectBuilder.py
             project = ob.buildProject(keys[matchKey(repo_index[idx], repo_key_index)[0]], repo_index[idx], all_lines)
             
             outJson = {}
@@ -224,10 +247,10 @@ async def buildOutput(repo_index, repo_key_index , repo_feature_index, keys, sav
             
             outJson.update({"features": features})
 
-            if save_json : saveJson("data/"+repo_index[idx], outJson)
+            
 
             out.append(outJson)
-
+        if save_json : saveJson("data/output", out)
     return out
 
 
@@ -251,36 +274,41 @@ async def assignFeatures(repo_feature_index, feature_files):
 
 async def main():    
 
-        if os.path.isdir("data"):
-                    shutil.rmtree("data")
-
-        cDir("data")
+        
 
         #Download all projects information for further processing
-        projectsRaw = await download_all([projectUrl], tcp_limit)
+        projectsRaw = await download_all([projectUrl])
         projects = json.loads(json.loads(json.dumps(projectsRaw[0], indent=4)))["values"]
         
         #Uses the downloaded project data to figure out which repository belongs to each project and maps them out
         repo_index, repo_key_index, keys, repo_urls = await getRepoIndex(projects)
-
+        logging.info("Finding all relevant repos...")
         #Downloads all root feature directories to map out how many feature files and subfolders exists before indexing them
-        dir_features = await download_all(repo_urls, tcp_limit)
+        dir_features = await download_all(repo_urls)
         repo_feature_index, feature_repos = await getFeatureIndex(dir_features, repo_index)
 
-
+        logging.info("Getting all feature files...")
         #Goes through all the names and generates the api call urls for every repository before downloading all of them asynchronously for a giant performance gain
         file_urls, repo_feature_index = await getAllFeatureUrls(repo_index, repo_feature_index, feature_repos, repo_key_index, keys)
-        feature_files = await download_all(file_urls, tcp_limit)
+        feature_files = await download_all(file_urls)
 
+        logging.info("Indexing Features...")
 
         #In order to know which features belong a repo this checks where feature files are expected
         repo_feature_index = await assignFeatures(repo_feature_index, feature_files)
 
+
+        if os.path.isdir("data"):
+                shutil.rmtree("data")
+                logging.info("Clearing previous data...")
+        cDir("data")
+
+        logging.info("Building output...")
         #uses objectbuilder.py to format the gathered informatin into a single Json structure per repo
         out = await buildOutput(repo_index, repo_key_index, repo_feature_index, keys, save_json=True)
 
         #print out each project file in a seperate line for use in console interfaces
-        for project in out: print(project)
+        #for project in out: print(project)
 
         return out
     
