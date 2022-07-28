@@ -52,7 +52,7 @@ async def download_link(url:str,session:ClientSession):
         return(result)
 
 
-async def download_all(urls:list, tcp_limit):
+async def download_all(urls:list):
     my_conn = aiohttp.TCPConnector(limit=tcp_limit)
     async with aiohttp.ClientSession(connector=my_conn) as session:
         tasks = []
@@ -123,7 +123,7 @@ async def getAllFeatureUrls(repo_index, repo_feature_index, feature_repos, repo_
                 dir_names.append(feature_index['values'][i]["path"]["name"])
                 dir_url.append(bitbucket_projects+keys[matchKey(repo, repo_key_index)[0]]+"/repos/"+repo+"/browse/src/test/resources/features/"+feature_index["values"][i]["path"]["name"])
 
-        dirs = await download_all(dir_url, tcp_limit)
+        dirs = await download_all(dir_url)
         subfiles = []
 
         for i, dir in enumerate(dirs):
@@ -177,7 +177,7 @@ async def getRepoIndex(projects):
         key_urls.append(bitbucket_projects+key+"/repos?limit=1000")
         keys.append(p["key"])
 
-    project_repos = await download_all(key_urls, tcp_limit)
+    project_repos = await download_all(key_urls)
     project_count = len(keys)
     
     #Check how many repos have a feature dir which suggests they have feature files
@@ -268,20 +268,20 @@ async def main():
         cDir("data")
 
         #Download all projects information for further processing
-        projectsRaw = await download_all([projectUrl], tcp_limit)
+        projectsRaw = await download_all([projectUrl])
         projects = json.loads(json.loads(json.dumps(projectsRaw[0], indent=4)))["values"]
         
         #Uses the downloaded project data to figure out which repository belongs to each project and maps them out
         repo_index, repo_key_index, keys, repo_urls = await getRepoIndex(projects)
 
         #Downloads all root feature directories to map out how many feature files and subfolders exists before indexing them
-        dir_features = await download_all(repo_urls, tcp_limit)
+        dir_features = await download_all(repo_urls)
         repo_feature_index, feature_repos = await getFeatureIndex(dir_features, repo_index)
 
 
         #Goes through all the names and generates the api call urls for every repository before downloading all of them asynchronously for a giant performance gain
         file_urls, repo_feature_index = await getAllFeatureUrls(repo_index, repo_feature_index, feature_repos, repo_key_index, keys)
-        feature_files = await download_all(file_urls, tcp_limit)
+        feature_files = await download_all(file_urls)
 
 
         #In order to know which features belong a repo this checks where feature files are expected
