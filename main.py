@@ -109,6 +109,7 @@ def matchKey(target, matchList):
 
 async def getAllFeatureUrls(repo_index, repo_feature_index, feature_repos, repo_key_index, keys):
     file_urls = []
+    
         #Generate the urls before downloading all of them at the same time for efficiency
     for idx, repo in enumerate(repo_index):
         
@@ -144,10 +145,14 @@ async def getAllFeatureUrls(repo_index, repo_feature_index, feature_repos, repo_
                 child = json.loads(json.dumps(child, indent=4))
                 if child["type"] != "DIRECTORY":
                     subfiles.append(child["path"]["name"])
+                    
+
         for file in subfiles:
             file_urls.append(bitbucket_projects+keys[matchKey(repo, repo_key_index)[0]]+"/repos/"+repo+"/browse/src/test/resources/features/"+dir_names[i]+"/"+file)
+            
             repo_feature_index[idx] = str(int(repo_feature_index[idx]) + 1)
-
+        
+    
     return file_urls, repo_feature_index
 
 
@@ -156,23 +161,30 @@ async def getFeatureIndex(dir_features, repo_index):
     repo_feature_index = []
 
     for idx, dir in enumerate(dir_features):
+        
         dir = json.loads(json.loads(json.dumps(dir, indent=4)))
         try:
             if dir["children"]["size"] > 0:
                 feature_repos.update({repo_index[idx]: dir["children"]})
-
                 temp = 0
-                for feature in dir["children"]["values"]:
-                    if feature['type'] != "DIRECTORY":
+
+                feature_list = dir["children"]["values"]
+
+                for f in feature_list:
+                    
+                    if f['type'] == "FILE":
                         temp += 1
-                        logging.info("Found feature at repo #"+idx)
+                        
+                    logging.info("Found feature at repo #"+str(idx))
+                
                 repo_feature_index.append(str(temp))
+                
             else:
                 repo_feature_index.append("0")
         except:
             repo_feature_index.append("0")
             
-
+    
     return repo_feature_index, feature_repos
 
 
@@ -215,10 +227,11 @@ async def getRepoIndex(projects):
 async def buildOutput(repo_index, repo_key_index , repo_feature_index, keys, save_json):
 
     out = []
-
+    
     for idx, repo in enumerate(repo_feature_index):
-            
+        
         if repo != "0":
+            
             all_lines = []
             for elem in repo:
                 elem = json.loads(json.loads(json.dumps(elem, indent=4)))
@@ -263,13 +276,13 @@ async def assignFeatures(repo_feature_index, feature_files):
         if elem != "0":
             features = []
             for i in range(int(elem)):
-                features.append(files[i])
                 
+                features.append(files[i])
             for i in range(int(elem)):
                 files.pop(0)
-
+            
             repo_feature_index[idx] = features
-
+    
     return repo_feature_index
 
 
@@ -291,6 +304,8 @@ async def main():
         #Downloads all root feature directories to map out how many feature files and subfolders exists before indexing them
         dir_features = await download_all(repo_urls)
         repo_feature_index, feature_repos = await getFeatureIndex(dir_features, repo_index)
+        
+        
 
         logging.info("Getting all feature files...")
         #Goes through all the names and generates the api call urls for every repository before downloading all of them asynchronously for a giant performance gain
@@ -298,12 +313,12 @@ async def main():
 
         logging.info("Starting download of "+str(len(file_urls))+" elements.")
         feature_files = await download_all(file_urls)
+        
 
         logging.info("Indexing Features...")
 
         #In order to know which features belong a repo this checks where feature files are expected
         repo_feature_index = await assignFeatures(repo_feature_index, feature_files)
-
 
         if os.path.isdir("data"):
                 shutil.rmtree("data")
@@ -313,9 +328,9 @@ async def main():
         logging.info("Building output...")
         #uses objectbuilder.py to format the gathered informatin into a single Json structure per repo
         out = await buildOutput(repo_index, repo_key_index, repo_feature_index, keys, save_json=True)
-
+        
         #print out each project file in a seperate line for use in console interfaces
-        #for project in out: print(project)
+        # for project in out: print(project)
 
         return out
     
